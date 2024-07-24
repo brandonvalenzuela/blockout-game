@@ -7,7 +7,7 @@
   canvas{
     border: 4px solid #fff;
     border-bottom: transparent;
-    background: #000;
+    background: url('./assets/background.png') round;
     margin: 0 auto;
     display: block;
   }
@@ -15,35 +15,80 @@
 
 <canvas></canvas>
 
+<img hidden id="paddle" src="assets/paddle.png" alt="Sprite paddle">
+<img hidden id="blocks" src="assets/blocks.png" alt="Sprite blocks">
+
 <script>
   const canvas = document.querySelector('canvas')
   const ctx = canvas.getContext('2d')
 
-  canvas.width = 448
-  canvas.height = 400
-  // variables de la pelota
-  let counter = 0
+  // TODO: Ajustar la resolucion de los sprites
+  const $paddle =  document.querySelector('#paddle')
+  const $blocks =  document.querySelector('#blocks')
+  // TODO: Ajustar el canvas
+  canvas.width = 896
+  canvas.height = 450
 
   // VARIABLES DE LA PELOTA
-  const ballRadius = 3
+  const ballRadius = 6
   // posicion de la pelota
   let x = canvas.width / 2
   let y = canvas.height - 30
   // velocidad de la pelota
-  let direccionX = 3
-  let direccionY = -3
+  let direccionX = 5
+  let direccionY = -5
 
   // VARIABLES DE LA PALETA
-  const paddleHeight = 10
-  const paddleWidth = 50
+  const paddleHeight = 18
+  const paddleWidth = 112
 
-  let paddleX = (canvas.width - paddleWidth) / 2
-  let paddleY = canvas.height - paddleHeight - 10
+  let paddlePositionX = (canvas.width - paddleWidth) / 2
+  let paddlePositionY = canvas.height - paddleHeight - 10
 
   let rightPressed = false
   let leftPressed = false
 
-  const PADDLE_SENSITIVITY = 8
+  const PADDLE_SENSITIVITY = 9
+
+  // VARIABLE DE LOS BLOCKS
+  const blockRowCount = 6
+  const blockColumnCount = 13
+  const blockWidth = 61
+  const blockHeight = 28
+  const blockPadding = 5
+  const blockOffsetTop = 10
+  const blockOffsetLeft = 21
+  const blocks = []
+
+  const BLOCK_STATUS = {
+    ACTIVE: 1,
+    DESTROYED: 0
+  }
+
+  for (let c = 0; c < blockColumnCount; c++){
+    blocks[c] = [] // inicializamos con un array vacio
+    for (let r = 0; r < blockRowCount; r++){
+      // Calculamos la posicion del block en la pantalla
+      const blockX = c * (blockWidth + blockPadding)
+      + blockOffsetLeft
+
+      const blockY  = r * (blockHeight + blockPadding)
+      + blockOffsetTop
+
+      // Asignar un color aleatorio a cada block
+      const random = Math.floor(Math.random() * 8) // Numero random entre el 0 y el 7
+      // Guardamos la informacionde cada block
+      blocks[c][r] = {
+        x: blockX,
+        y: blockY,
+        status: BLOCK_STATUS.ACTIVE,
+        color: random
+      }
+    }
+
+  }
+
+
 
   // dibujar la pelota
   function drawBall() {
@@ -55,19 +100,63 @@
   }
 
   function drawPaddle() {
-    ctx.fillStyle = '#fff'
-    ctx.fillRect(
-      paddleX, // la cordenada x
-      paddleY, // la cordenada y
-      paddleWidth, // el ancho del dibujo
-      paddleHeight // el alto del dibujo
+    ctx.drawImage($paddle,
+      0,
+      0,
+      paddleWidth, // Tamaño del recorte
+      paddleHeight, // Tamaño del recorte
+      paddlePositionX, // Posicion X del dibujo
+      paddlePositionY, // Posicion Y del dibujo
+      paddleWidth, // Ancho del dibujo
+      paddleHeight // Alto del dibujo 
     )
   }
 
-  function drawBricks() {}
+  function drawBlocks() {
+    for (let c = 0; c < blockColumnCount; c++){
+      for (let r = 0; r < blockRowCount; r++){
+        const currentBlock = blocks[c][r]
+        if (currentBlock.status === BLOCK_STATUS.DESTROYED)
+        continue
+        
+        const clipX = currentBlock.color * 61
+        
+        ctx.drawImage(
+          $blocks,
+          clipX,
+          0,
+          blockWidth,
+          blockHeight,
+          currentBlock.x,
+          currentBlock.y,
+          blockWidth,
+          blockHeight
+        )
+      }
+    }
+  }
 
   function collisionDetection() {
+    for (let c = 0; c < blockColumnCount; c++){
+      for (let r = 0; r < blockRowCount; r++){
+        const currentBlock = blocks[c][r]
+        if (currentBlock.status === BLOCK_STATUS.DESTROYED)
+        continue
 
+        const isBallSameXAsBlock = 
+          x > currentBlock.x &&
+          x < currentBlock.x + blockWidth
+         
+        const isBallSameYAsBlock = 
+          y > currentBlock.y &&
+          y < currentBlock.y + blockHeight
+
+        if (isBallSameXAsBlock && isBallSameYAsBlock){
+          direccionY = -direccionY
+          currentBlock.status = BLOCK_STATUS.DESTROYED
+        }
+      }
+    }
   }
 
   function ballMovement() {
@@ -86,19 +175,18 @@
 
     // la pelota toca la pala
     const isBallSameXAsPaddle = 
-    x > paddleX &&
-    x < paddleX + paddleWidth
+      x > paddlePositionX &&
+      x < paddlePositionX + paddleWidth
 
     const isBallTouchingPaddle = 
-      y + direccionY > paddleY 
+      y + direccionY > paddlePositionY 
 
     if(isBallTouchingPaddle && isBallSameXAsPaddle){
       direccionY = -direccionY // cambiamos la direccion de la pelota
     }
-    
-    else if ( // la pelota toca el suelo
-      y + direccionY > canvas.height - ballRadius
-    ){
+
+    // la pelota toca el suelo
+    else if (y + direccionY > canvas.height - ballRadius){
       console.log('Game Over')
       document.location.reload()
     }
@@ -109,10 +197,10 @@
   }
 
   function paddleMovement() {
-    if (rightPressed && paddleX < canvas.width - paddleWidth){
-      paddleX += PADDLE_SENSITIVITY
-    }else if (leftPressed && paddleX > 0){
-      paddleX -= PADDLE_SENSITIVITY
+    if (rightPressed && paddlePositionX < canvas.width - paddleWidth){
+      paddlePositionX += PADDLE_SENSITIVITY
+    }else if (leftPressed && paddlePositionX > 0){
+      paddlePositionX -= PADDLE_SENSITIVITY
     }
   }
 
@@ -150,7 +238,7 @@
     // dibujar los elementos
     drawBall()
     drawPaddle()
-    drawBricks()
+    drawBlocks()
     // drawScore()
 
     // colisiones y movimeintos
